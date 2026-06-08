@@ -61,6 +61,19 @@ Arduino_Modulino library
 Arduino_RouterBridge library
 ```
 
+If `winget` cannot install a package, the script now tries direct official
+download fallbacks for the major tools:
+
+```text
+Git for Windows
+Python ARM64
+Google Chrome
+Visual Studio Code ARM64
+Arduino IDE
+Arduino CLI
+Node.js ARM64
+```
+
 It creates:
 
 ```text
@@ -131,3 +144,6 @@ If it still fails, reset the source cache:
 winget source reset --force
 winget source update
 ```
+
+If `winget` still fails for many packages, rerun the latest installer anyway.
+It will attempt direct downloads from the official vendor URLs.

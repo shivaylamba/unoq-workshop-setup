@@ -325,6 +325,11 @@ Arduino_RouterBridge library
 Local workshop workspace and verification report
 ```
 
+If `winget` fails, the installer attempts direct official download fallbacks for
+Git, Python ARM64, Chrome, VS Code ARM64, Arduino IDE, Arduino CLI, and Node.js
+ARM64. This is useful on fresh laptops where the Microsoft Store source or
+`winget` source cache is broken.
+
 It creates:
 
 ```text
@@ -384,6 +389,10 @@ If `winget` still fails, reset the source cache:
 winget source reset --force
 winget source update
 ```
+
+If `winget` still fails for many packages, rerun the latest
+`Install-WorkshopPrereqs.ps1`. It will fall back to direct official downloads
+for the major workshop tools.
 
 ## What Still Requires Manual Work
 

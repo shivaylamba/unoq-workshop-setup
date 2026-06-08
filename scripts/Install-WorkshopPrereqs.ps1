@@ -14,7 +14,15 @@ interaction and should be verified manually per kit.
 param(
     [string]$InstallRoot = "C:\ArduinoEdgeAIWorkshop",
     [string]$AppLabArm64Url = "https://downloads.arduino.cc/AppLab/Stable/ArduinoAppLab_0.8.0_Windows_arm64_installer.exe",
+    [string]$GitInstallerUrl = "https://github.com/git-for-windows/git/releases/download/v2.52.0.windows.1/Git-2.52.0-64-bit.exe",
+    [string]$PythonArm64InstallerUrl = "https://www.python.org/ftp/python/3.11.9/python-3.11.9-arm64.exe",
+    [string]$ChromeInstallerUrl = "https://dl.google.com/chrome/install/ChromeStandaloneSetup64.exe",
+    [string]$VSCodeArm64InstallerUrl = "https://code.visualstudio.com/sha/download?build=stable&os=win32-arm64-user",
+    [string]$ArduinoIdeInstallerUrl = "https://downloads.arduino.cc/arduino-ide/arduino-ide_2.3.8_Windows_64bit.exe",
+    [string]$ArduinoCliZipUrl = "https://downloads.arduino.cc/arduino-cli/arduino-cli_latest_Windows_64bit.zip",
+    [string]$NodeArm64MsiUrl = "https://nodejs.org/download/release/v20.19.1/node-v20.19.1-arm64.msi",
     [switch]$SkipWinget,
+    [switch]$SkipDirectFallbacks,
     [switch]$SkipPython,
     [switch]$SkipGit,
     [switch]$SkipChrome,
@@ -82,6 +90,102 @@ function Invoke-External {
     if ($AllowFailure) { return $exit }
 }
 
+function Invoke-DownloadedInstaller {
+    param(
+        [string]$DisplayName,
+        [string]$Url,
+        [string[]]$Arguments = @(),
+        [switch]$Msi
+    )
+    if ($SkipDirectFallbacks) {
+        Add-SetupWarning "Direct fallback disabled for $DisplayName."
+        return $false
+    }
+    try {
+        New-Item -ItemType Directory -Force -Path (Join-Path $InstallRoot "downloads") | Out-Null
+        $fileName = Split-Path ([Uri]$Url).AbsolutePath -Leaf
+        if (-not $fileName -or $fileName -notmatch "\.") {
+            $fileName = ($DisplayName -replace "[^A-Za-z0-9_.-]+", "_") + ".exe"
+        }
+        $downloadPath = Join-Path (Join-Path $InstallRoot "downloads") $fileName
+        Write-Host "    Downloading $DisplayName from $Url"
+        Invoke-WebRequest -Uri $Url -OutFile $downloadPath -UseBasicParsing
+        if ($Msi) {
+            $msiArgs = @("/i", $downloadPath, "/qn", "/norestart") + $Arguments
+            Invoke-External -FilePath "msiexec.exe" -Arguments $msiArgs -AllowFailure | Out-Null
+        } else {
+            Invoke-External -FilePath $downloadPath -Arguments $Arguments -AllowFailure | Out-Null
+        }
+        Write-Ok "$DisplayName direct installer completed or was launched."
+        Refresh-ProcessPath
+        return $true
+    } catch {
+        Add-SetupWarning "Direct fallback failed for $DisplayName`: $($_.Exception.Message)"
+        return $false
+    }
+}
+
+function Install-ArduinoCliZipFallback {
+    if ($SkipDirectFallbacks) {
+        Add-SetupWarning "Direct fallback disabled for Arduino CLI."
+        return $false
+    }
+    try {
+        New-Item -ItemType Directory -Force -Path (Join-Path $InstallRoot "downloads") | Out-Null
+        $zipPath = Join-Path (Join-Path $InstallRoot "downloads") "arduino-cli.zip"
+        $toolDir = Join-Path $InstallRoot "tools\arduino-cli"
+        Write-Host "    Downloading Arduino CLI from $ArduinoCliZipUrl"
+        Invoke-WebRequest -Uri $ArduinoCliZipUrl -OutFile $zipPath -UseBasicParsing
+        if (Test-Path $toolDir) { Remove-Item -LiteralPath $toolDir -Recurse -Force }
+        New-Item -ItemType Directory -Force -Path $toolDir | Out-Null
+        Expand-Archive -LiteralPath $zipPath -DestinationPath $toolDir -Force
+        $env:Path = "$toolDir;$env:Path"
+        $userPath = [Environment]::GetEnvironmentVariable("Path", "User")
+        if ($userPath -notlike "*$toolDir*") {
+            [Environment]::SetEnvironmentVariable("Path", "$userPath;$toolDir", "User")
+        }
+        Write-Ok "Arduino CLI extracted to $toolDir"
+        return $true
+    } catch {
+        Add-SetupWarning "Direct fallback failed for Arduino CLI: $($_.Exception.Message)"
+        return $false
+    }
+}
+
+function Install-DirectFallbackPackage {
+    param(
+        [string]$Id,
+        [string]$DisplayName
+    )
+    switch ($Id) {
+        "Git.Git" {
+            return Invoke-DownloadedInstaller -DisplayName $DisplayName -Url $GitInstallerUrl -Arguments @("/VERYSILENT", "/NORESTART", "/NOCANCEL", "/SP-")
+        }
+        "Python.Python.3.11" {
+            return Invoke-DownloadedInstaller -DisplayName $DisplayName -Url $PythonArm64InstallerUrl -Arguments @("/quiet", "InstallAllUsers=1", "PrependPath=1", "Include_test=0")
+        }
+        "Google.Chrome" {
+            return Invoke-DownloadedInstaller -DisplayName $DisplayName -Url $ChromeInstallerUrl -Arguments @("/silent", "/install")
+        }
+        "Microsoft.VisualStudioCode" {
+            return Invoke-DownloadedInstaller -DisplayName $DisplayName -Url $VSCodeArm64InstallerUrl -Arguments @("/VERYSILENT", "/NORESTART", "/MERGETASKS=addtopath")
+        }
+        "ArduinoSA.IDE.stable" {
+            return Invoke-DownloadedInstaller -DisplayName $DisplayName -Url $ArduinoIdeInstallerUrl -Arguments @("/S")
+        }
+        "ArduinoSA.CLI" {
+            return Install-ArduinoCliZipFallback
+        }
+        "OpenJS.NodeJS.LTS" {
+            return Invoke-DownloadedInstaller -DisplayName $DisplayName -Url $NodeArm64MsiUrl -Msi
+        }
+        default {
+            Add-SetupWarning "No direct fallback is configured for $DisplayName."
+            return $false
+        }
+    }
+}
+
 function Install-WingetPackage {
     param(
         [string]$Id,
@@ -90,10 +194,12 @@ function Install-WingetPackage {
     )
     if ($SkipWinget) {
         Add-SetupWarning "Skipping winget install for $DisplayName."
+        Install-DirectFallbackPackage -Id $Id -DisplayName $DisplayName | Out-Null
         return
     }
     if (-not (Test-CommandExists "winget")) {
         Add-SetupWarning "winget is missing. Install $DisplayName manually."
+        Install-DirectFallbackPackage -Id $Id -DisplayName $DisplayName | Out-Null
         return
     }
 
@@ -108,7 +214,8 @@ function Install-WingetPackage {
     if ($exit -eq 0) {
         Write-Ok "$DisplayName installed or already present."
     } else {
-        Add-SetupWarning "winget could not install $DisplayName. Install it manually if required."
+        Add-SetupWarning "winget could not install $DisplayName. Trying direct download fallback."
+        Install-DirectFallbackPackage -Id $Id -DisplayName $DisplayName | Out-Null
     }
     Refresh-ProcessPath
 }
