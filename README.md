@@ -28,7 +28,7 @@ Modulino Movement / IMU gesture projects
 Run this on each brand-new workshop laptop:
 
 ```powershell
-winget install --id Git.Git --exact --accept-package-agreements --accept-source-agreements
+winget install --source winget --id Git.Git --exact --accept-package-agreements --accept-source-agreements
 
 cd C:\Users\Public\Downloads
 
@@ -111,3 +111,23 @@ Read the full plan:
 WORKSHOP_SETUP_ACTION_PLAN.md
 ```
 
+## Winget Store Source Error
+
+If `winget` shows this on a fresh laptop:
+
+```text
+Failed when searching source: msstore
+```
+
+force the normal `winget` source:
+
+```powershell
+winget install --source winget --id Git.Git --exact --accept-package-agreements --accept-source-agreements
+```
+
+If it still fails, reset the source cache:
+
+```powershell
+winget source reset --force
+winget source update
+```

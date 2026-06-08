@@ -346,13 +346,13 @@ The manual equivalent is below.
 Recommended software:
 
 ```powershell
-winget install --id Git.Git --exact --accept-package-agreements --accept-source-agreements
-winget install --id Python.Python.3.11 --exact --architecture arm64 --accept-package-agreements --accept-source-agreements
-winget install --id Microsoft.VisualStudioCode --exact --accept-package-agreements --accept-source-agreements
-winget install --id Google.Chrome --exact --accept-package-agreements --accept-source-agreements
-winget install --id ArduinoSA.IDE.stable --exact --accept-package-agreements --accept-source-agreements
-winget install --id ArduinoSA.CLI --exact --accept-package-agreements --accept-source-agreements
-winget install --id OpenJS.NodeJS.LTS --exact --accept-package-agreements --accept-source-agreements
+winget install --source winget --id Git.Git --exact --accept-package-agreements --accept-source-agreements
+winget install --source winget --id Python.Python.3.11 --exact --architecture arm64 --accept-package-agreements --accept-source-agreements
+winget install --source winget --id Microsoft.VisualStudioCode --exact --accept-package-agreements --accept-source-agreements
+winget install --source winget --id Google.Chrome --exact --accept-package-agreements --accept-source-agreements
+winget install --source winget --id ArduinoSA.IDE.stable --exact --accept-package-agreements --accept-source-agreements
+winget install --source winget --id ArduinoSA.CLI --exact --accept-package-agreements --accept-source-agreements
+winget install --source winget --id OpenJS.NodeJS.LTS --exact --accept-package-agreements --accept-source-agreements
 ```
 
 Install VS Code extensions:
@@ -371,6 +371,19 @@ npm install -g edge-impulse-cli
 
 Arduino App Lab may need to be installed from Arduino's Windows ARM installer
 if it is not available through the package manager.
+
+### Winget Store Source Error
+
+Some fresh Windows machines show an `msstore` source error even when installing
+packages that come from the normal `winget` source. Use `--source winget` in the
+commands above.
+
+If `winget` still fails, reset the source cache:
+
+```powershell
+winget source reset --force
+winget source update
+```
 
 ## What Still Requires Manual Work
 

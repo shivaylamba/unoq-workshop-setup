@@ -98,7 +98,7 @@ function Install-WingetPackage {
     }
 
     $args = @(
-        "install", "--id", $Id, "--exact",
+        "install", "--source", "winget", "--id", $Id, "--exact",
         "--accept-package-agreements", "--accept-source-agreements",
         "--silent"
     )
@@ -325,4 +325,3 @@ if ($script:Warnings.Count -gt 0) {
         Write-Host " - $warning" -ForegroundColor Yellow
     }
 }
-
