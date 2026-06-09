@@ -394,6 +394,10 @@ If `winget` still fails for many packages, rerun the latest
 `Install-WorkshopPrereqs.ps1`. It will fall back to direct official downloads
 for the major workshop tools.
 
+If it appears stuck for a long time on a direct Chrome download but Chrome is
+already installed, press `Ctrl+C`, pull the latest repo, and rerun. The current
+script skips already-installed tools before trying fallback downloads.
+
 ## What Still Requires Manual Work
 
 The installer cannot fully automate these steps because they require physical

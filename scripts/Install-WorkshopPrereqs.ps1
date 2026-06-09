@@ -39,6 +39,7 @@ param(
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
+$ProgressPreference = "SilentlyContinue"
 $script:Warnings = New-Object System.Collections.Generic.List[string]
 
 function Write-Step {
@@ -75,6 +76,41 @@ function Refresh-ProcessPath {
     $env:Path = "$machine;$user"
 }
 
+function Test-WorkshopPackageInstalled {
+    param([string]$Id)
+    Refresh-ProcessPath
+    switch ($Id) {
+        "Git.Git" {
+            return (Test-CommandExists "git") -or (Test-Path "$env:ProgramFiles\Git\bin\git.exe")
+        }
+        "Python.Python.3.11" {
+            return (Test-CommandExists "python") -or (Test-CommandExists "py")
+        }
+        "Google.Chrome" {
+            return (Test-Path "$env:ProgramFiles\Google\Chrome\Application\chrome.exe") -or
+                (Test-Path "${env:ProgramFiles(x86)}\Google\Chrome\Application\chrome.exe")
+        }
+        "Microsoft.VisualStudioCode" {
+            return (Test-CommandExists "code") -or
+                (Test-Path "$env:LOCALAPPDATA\Programs\Microsoft VS Code\Code.exe") -or
+                (Test-Path "$env:ProgramFiles\Microsoft VS Code\Code.exe")
+        }
+        "ArduinoSA.IDE.stable" {
+            return (Test-Path "$env:LOCALAPPDATA\Programs\Arduino IDE\Arduino IDE.exe") -or
+                (Test-Path "$env:ProgramFiles\Arduino IDE\Arduino IDE.exe")
+        }
+        "ArduinoSA.CLI" {
+            return [bool](Find-ArduinoCli)
+        }
+        "OpenJS.NodeJS.LTS" {
+            return (Test-CommandExists "node") -and (Test-CommandExists "npm")
+        }
+        default {
+            return $false
+        }
+    }
+}
+
 function Invoke-External {
     param(
         [Parameter(Mandatory=$true)][string]$FilePath,
@@ -108,8 +144,19 @@ function Invoke-DownloadedInstaller {
             $fileName = ($DisplayName -replace "[^A-Za-z0-9_.-]+", "_") + ".exe"
         }
         $downloadPath = Join-Path (Join-Path $InstallRoot "downloads") $fileName
-        Write-Host "    Downloading $DisplayName from $Url"
-        Invoke-WebRequest -Uri $Url -OutFile $downloadPath -UseBasicParsing
+        if (Test-Path $downloadPath -and (Get-Item -LiteralPath $downloadPath).Length -gt 0) {
+            Write-Host "    Reusing downloaded installer: $downloadPath"
+        } else {
+            Write-Host "    Downloading $DisplayName from $Url"
+            if (Get-Command curl.exe -ErrorAction SilentlyContinue) {
+                Invoke-External -FilePath "curl.exe" -Arguments @("-L", "--fail", "--retry", "3", "--output", $downloadPath, $Url) -AllowFailure | Out-Null
+                if (-not (Test-Path $downloadPath) -or (Get-Item -LiteralPath $downloadPath).Length -eq 0) {
+                    Invoke-WebRequest -Uri $Url -OutFile $downloadPath -UseBasicParsing
+                }
+            } else {
+                Invoke-WebRequest -Uri $Url -OutFile $downloadPath -UseBasicParsing
+            }
+        }
         if ($Msi) {
             $msiArgs = @("/i", $downloadPath, "/qn", "/norestart") + $Arguments
             Invoke-External -FilePath "msiexec.exe" -Arguments $msiArgs -AllowFailure | Out-Null
@@ -134,8 +181,19 @@ function Install-ArduinoCliZipFallback {
         New-Item -ItemType Directory -Force -Path (Join-Path $InstallRoot "downloads") | Out-Null
         $zipPath = Join-Path (Join-Path $InstallRoot "downloads") "arduino-cli.zip"
         $toolDir = Join-Path $InstallRoot "tools\arduino-cli"
-        Write-Host "    Downloading Arduino CLI from $ArduinoCliZipUrl"
-        Invoke-WebRequest -Uri $ArduinoCliZipUrl -OutFile $zipPath -UseBasicParsing
+        if (Test-Path $zipPath -and (Get-Item -LiteralPath $zipPath).Length -gt 0) {
+            Write-Host "    Reusing downloaded Arduino CLI zip: $zipPath"
+        } else {
+            Write-Host "    Downloading Arduino CLI from $ArduinoCliZipUrl"
+            if (Get-Command curl.exe -ErrorAction SilentlyContinue) {
+                Invoke-External -FilePath "curl.exe" -Arguments @("-L", "--fail", "--retry", "3", "--output", $zipPath, $ArduinoCliZipUrl) -AllowFailure | Out-Null
+                if (-not (Test-Path $zipPath) -or (Get-Item -LiteralPath $zipPath).Length -eq 0) {
+                    Invoke-WebRequest -Uri $ArduinoCliZipUrl -OutFile $zipPath -UseBasicParsing
+                }
+            } else {
+                Invoke-WebRequest -Uri $ArduinoCliZipUrl -OutFile $zipPath -UseBasicParsing
+            }
+        }
         if (Test-Path $toolDir) { Remove-Item -LiteralPath $toolDir -Recurse -Force }
         New-Item -ItemType Directory -Force -Path $toolDir | Out-Null
         Expand-Archive -LiteralPath $zipPath -DestinationPath $toolDir -Force
@@ -157,6 +215,10 @@ function Install-DirectFallbackPackage {
         [string]$Id,
         [string]$DisplayName
     )
+    if (Test-WorkshopPackageInstalled -Id $Id) {
+        Write-Ok "$DisplayName is already installed. Skipping direct fallback."
+        return $true
+    }
     switch ($Id) {
         "Git.Git" {
             return Invoke-DownloadedInstaller -DisplayName $DisplayName -Url $GitInstallerUrl -Arguments @("/VERYSILENT", "/NORESTART", "/NOCANCEL", "/SP-")
@@ -192,6 +254,10 @@ function Install-WingetPackage {
         [string]$DisplayName,
         [string]$Architecture = ""
     )
+    if (Test-WorkshopPackageInstalled -Id $Id) {
+        Write-Ok "$DisplayName already installed. Skipping."
+        return
+    }
     if ($SkipWinget) {
         Add-SetupWarning "Skipping winget install for $DisplayName."
         Install-DirectFallbackPackage -Id $Id -DisplayName $DisplayName | Out-Null
@@ -215,7 +281,12 @@ function Install-WingetPackage {
         Write-Ok "$DisplayName installed or already present."
     } else {
         Add-SetupWarning "winget could not install $DisplayName. Trying direct download fallback."
-        Install-DirectFallbackPackage -Id $Id -DisplayName $DisplayName | Out-Null
+        Refresh-ProcessPath
+        if (Test-WorkshopPackageInstalled -Id $Id) {
+            Write-Ok "$DisplayName appears to be installed after winget attempt. Skipping direct fallback."
+        } else {
+            Install-DirectFallbackPackage -Id $Id -DisplayName $DisplayName | Out-Null
+        }
     }
     Refresh-ProcessPath
 }

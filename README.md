@@ -147,3 +147,14 @@ winget source update
 
 If `winget` still fails for many packages, rerun the latest installer anyway.
 It will attempt direct downloads from the official vendor URLs.
+
+If the script appears stuck for a long time on a direct Chrome download but
+Chrome is already installed, press `Ctrl+C`, pull the latest repo, and rerun the
+installer. The current script checks for already-installed tools before trying
+fallback downloads:
+
+```powershell
+cd C:\Users\Public\Downloads\unoq-workshop-setup
+git pull
+.\scripts\Install-WorkshopPrereqs.ps1
+```
