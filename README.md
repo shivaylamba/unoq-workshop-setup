@@ -56,9 +56,8 @@ Edge Impulse CLI
 VS Code Remote SSH extension
 VS Code Python extension
 VS Code C++ extension
-Arduino UNO Q core
-Arduino_Modulino library
-Arduino_RouterBridge library
+Optional Arduino UNO Q core/libraries when requested
+Optional Edge Impulse CLI when requested
 ```
 
 If `winget` cannot install a package, the script now tries direct official
@@ -81,6 +80,21 @@ C:\ArduinoEdgeAIWorkshop
 C:\ArduinoEdgeAIWorkshop\Verify-WorkshopLaptop.bat
 C:\ArduinoEdgeAIWorkshop\WORKSHOP_SETUP_REPORT.txt
 Desktop\Verify Edge AI Workshop Laptop.lnk
+```
+
+By default, the installer skips the slowest optional network steps:
+
+```text
+Arduino CLI core/library downloads
+Edge Impulse CLI npm install
+```
+
+This is intentional for classroom setup. Arduino App Lab and Edge Impulse Studio
+in the browser are enough for the workshop flow. If you explicitly need those
+optional CLI tools on a prep machine, run:
+
+```powershell
+.\scripts\Install-WorkshopPrereqs.ps1 -InstallArduinoPackages -InstallEdgeImpulseCli
 ```
 
 ## What Still Requires Manual Work
@@ -158,3 +172,8 @@ cd C:\Users\Public\Downloads\unoq-workshop-setup
 git pull
 .\scripts\Install-WorkshopPrereqs.ps1
 ```
+
+If the script is stuck on `arduino-cli core install arduino:zephyr`,
+`Arduino_Modulino`, or `edge-impulse-cli`, press `Ctrl+C`, pull the latest repo,
+and rerun the default installer. The current default skips those optional
+network-heavy steps.

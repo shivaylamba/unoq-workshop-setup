@@ -32,8 +32,10 @@ param(
     [switch]$SkipAppLab,
     [switch]$SkipVSCodeExtensions,
     [switch]$SkipArduinoPackages,
+    [switch]$InstallArduinoPackages,
     [switch]$SkipNode,
     [switch]$SkipEdgeImpulseCli,
+    [switch]$InstallEdgeImpulseCli,
     [switch]$NoDesktopShortcut
 )
 
@@ -339,6 +341,10 @@ function Find-ArduinoCli {
 
 function Install-ArduinoPackages {
     if ($SkipArduinoCli -or $SkipArduinoPackages) { return }
+    if (-not $InstallArduinoPackages) {
+        Add-SetupWarning "Skipping Arduino UNO Q core/library install by default. Use -InstallArduinoPackages if you need Arduino CLI cores/libraries on this laptop."
+        return
+    }
     Write-Step "Installing Arduino UNO Q core and workshop libraries"
     $cli = Find-ArduinoCli
     if (-not $cli) {
@@ -355,6 +361,10 @@ function Install-ArduinoPackages {
 
 function Install-EdgeImpulseCli {
     if ($SkipEdgeImpulseCli) { return }
+    if (-not $InstallEdgeImpulseCli) {
+        Add-SetupWarning "Skipping Edge Impulse CLI by default. Use -InstallEdgeImpulseCli if you need command-line upload tools; the browser Studio is enough for the workshop."
+        return
+    }
     Write-Step "Installing Edge Impulse CLI"
     if (-not (Test-CommandExists "npm")) {
         Add-SetupWarning "npm is not available. Edge Impulse CLI skipped. Install Node.js LTS or use Edge Impulse Studio in the browser."

@@ -319,9 +319,7 @@ Arduino App Lab ARM64 installer
 Node.js LTS
 Edge Impulse CLI
 VS Code extensions: Remote SSH, Python, C++
-Arduino UNO Q core
-Arduino_Modulino library
-Arduino_RouterBridge library
+Optional Arduino UNO Q core/libraries when explicitly requested
 Local workshop workspace and verification report
 ```
 
@@ -329,6 +327,23 @@ If `winget` fails, the installer attempts direct official download fallbacks for
 Git, Python ARM64, Chrome, VS Code ARM64, Arduino IDE, Arduino CLI, and Node.js
 ARM64. This is useful on fresh laptops where the Microsoft Store source or
 `winget` source cache is broken.
+
+By default, the installer skips the slowest optional network steps:
+
+```text
+arduino-cli core install arduino:zephyr
+arduino-cli lib install Arduino_Modulino
+arduino-cli lib install Arduino_RouterBridge
+npm install -g edge-impulse-cli
+```
+
+This is intentional for a 15-laptop workshop prep. Arduino App Lab and Edge
+Impulse Studio in the browser are enough for the workshop flow. If you want to
+install these optional CLI pieces on a machine, run:
+
+```powershell
+.\scripts\Install-WorkshopPrereqs.ps1 -InstallArduinoPackages -InstallEdgeImpulseCli
+```
 
 It creates:
 
@@ -397,6 +412,10 @@ for the major workshop tools.
 If it appears stuck for a long time on a direct Chrome download but Chrome is
 already installed, press `Ctrl+C`, pull the latest repo, and rerun. The current
 script skips already-installed tools before trying fallback downloads.
+
+If it is stuck on Arduino core/library install or Edge Impulse CLI install,
+press `Ctrl+C`, pull the latest repo, and rerun the default installer. Those
+network-heavy steps are now optional and skipped by default.
 
 ## What Still Requires Manual Work
 
